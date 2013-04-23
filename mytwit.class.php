@@ -43,6 +43,10 @@ class myTwit{
     }
     
     function checkCacheFile(){
+        
+        //create the file if it doesn't exist
+        if(!file_exists($this->cacheFile)) $this->createCacheFile();
+        
         if ( (@filemtime($this->cacheFile) < (mktime() - $this->cachExpire) ) || (!is_file($this->cacheFile)) ){
             $this->debugMsg('Cache file outdated');
             $this->updateCache();
@@ -50,10 +54,17 @@ class myTwit{
             $this->debugMsg('Cache file still valid');
         }
     }
+
+    function createCacheFile(){
+
+        if(!file_exists($this->cacheFile)){
+
+            touch($this->cacheFile, mktime() - $this->cachExpire);
+        }
+    }
     
     function updateCache(){
         $uri = 'http://api.twitter.com/1/statuses/user_timeline.json?screen_name='.$this->user.'&count='.$this->postLimit.'&exclude_replies='.$this->exclude_replies;
-        echo $uri;
         $this->debugMsg("Fetching tweets from $uri");
         $req = new HTTPRequest($uri);
         $tmpdata = $req->DownloadToString();
@@ -79,12 +90,7 @@ class myTwit{
         $this->checkCacheFile();
         $this->readCache();
         $this->jsonArray = json_decode($this->jsonData, true);
-        $output = '<ul class="twitbox">';
-        if ($this->myTwitHeader && isset($this->jsonArray[0])){
-            $output .= '<li class="mytwitHead"><a href="http://twitter.com/'.$this->user.'"'.$this->targetAppend.'><img src="'.$this->jsonArray[0]['user']['profile_image_url'].'" style="border:0" alt="'.$this->user.'" /></a>'.
-            '<div><a href="http://twitter.com/'.$this->user.'"'.$this->targetAppend.'>'.$this->user.'</a><br />'.
-            $this->formatPlural($this->jsonArray[0]['user']['followers_count'], 'follower').'</div></li>';
-        }       
+        $output = "";
         for($x=0; $x < count($this->jsonArray) && $x < $this->postLimit; $x++){
             $tweetID = $this->jsonArray[$x]['id'];
             $username = $this->jsonArray[$x]['user']['screen_name'];
@@ -92,14 +98,13 @@ class myTwit{
             $seconds_ago = mktime() - strtotime($this->jsonArray[$x]['created_at']);
             $ts = strtotime($this->jsonArray[$x]['created_at'])+$this->jsonArray[$x]['user']['utc_offset'];
             $cur_ts = mktime();
-            $output .= '<li'.$this->postClassAppend.'>'.$this->linkURLs($this->jsonArray[$x]['text']).
-            ' <span class="twhen">by <a href="http://twitter.com/'.$this->jsonArray[$x]['user']['screen_name'].'"'.$this->targetAppend.'>'.$this->jsonArray[$x]['user']['screen_name'].'</a> '.
-            $this->intoRelativeTime($seconds_ago)."</span>";
+            $output .= '<div'.$this->postClassAppend.'>'.$this->linkURLs($this->jsonArray[$x]['text']);
             $output .= "<div class=\"twitter-intents\">";
             $output .= "<a href=\"http://twitter.com/intent/retweet?related=".$username."&tweet_id=".$tweetID."\" rel=\"nofollow\"><img src=\"http://si0.twimg.com/images/dev/cms/intents/icons/retweet.png\" alt=\"ReTweet\"/></a>\n<a href=\"http://twitter.com/intent/tweet?related=".$username."&in_reply_to=".$tweetID."\" rel=\"nofollow\"><img src=\"http://si0.twimg.com/images/dev/cms/intents/icons/reply.png\" alt=\"Reply\"/></a>\n<a href=\"http://twitter.com/intent/favorite?related=".$username."&tweet_id=".$tweetID."\" rel=\"nofollow\"><img src=\"http://si0.twimg.com/images/dev/cms/intents/icons/favorite.png\" alt=\"Favorite\"/></a>";
-            $output .= "</div></li>\n";
+            $output .= "</div>";
+            $output .= "<span class=\"twhen\"><a href=\"http://twitter.com/FITCHdesign/statuses/".$tweetID."\">(".$this->intoRelativeTime($seconds_ago).")</a></span>";
+            $output .= "</div>\n";
         }
-        $output .= '</ul>';
         $this->myTwitData = $output;
     }   
 }
